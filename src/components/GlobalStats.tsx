@@ -2,6 +2,7 @@
 
 interface GlobalStatsProps {
   totalSupply: string;
+  contractAddress: string;
   tps: number;
   walletCount: number;
   totalInFlight: number;
@@ -33,6 +34,7 @@ function StatCard({
 
 export function GlobalStats({
   totalSupply,
+  contractAddress,
   tps,
   walletCount,
   totalInFlight,
@@ -40,7 +42,19 @@ export function GlobalStats({
 }: GlobalStatsProps) {
   return (
     <div className="flex flex-wrap gap-3 mb-6">
-      <StatCard label="Total Supply" value={`${totalSupply} BRRRR`} />
+      <div className="bg-surface border border-border rounded px-4 py-3 min-w-[120px]">
+        <div className="text-[10px] uppercase tracking-widest text-muted mb-1">
+          Total Supply
+        </div>
+        <a
+          href={`https://sepolia.basescan.org/token/${contractAddress}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xl font-bold tabular-nums text-foreground hover:text-blue-400 transition-colors"
+        >
+          {totalSupply} BRRRR
+        </a>
+      </div>
       <StatCard label="TPS" value={tps.toFixed(1)} />
       <StatCard label="Pool Size" value={walletCount} />
       <StatCard label="In-Flight" value={totalInFlight} highlight />

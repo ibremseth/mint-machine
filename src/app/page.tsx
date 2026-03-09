@@ -31,6 +31,7 @@ export default function Home() {
   );
   const [wallets, setWallets] = useState<WalletInfo[]>([]);
   const [totalSupply, setTotalSupply] = useState("0");
+  const [contractAddress, setContractAddress] = useState("");
   const [isMinting, setIsMinting] = useState(false);
   const [tps, setTps] = useState(0);
   const confirmedTimestamps = useRef<number[]>([]);
@@ -59,6 +60,7 @@ export default function Home() {
         if (res.ok) {
           const data = await res.json();
           setTotalSupply(data.totalSupply);
+          if (data.contractAddress) setContractAddress(data.contractAddress);
         }
       } catch {}
     };
@@ -181,6 +183,7 @@ export default function Home() {
 
       <GlobalStats
         totalSupply={totalSupply}
+        contractAddress={contractAddress}
         tps={tps}
         walletCount={wallets.length}
         totalInFlight={

@@ -94,12 +94,8 @@ function TxCard({ tx }: { tx: TrackedTx }) {
     }
   }, [tx.status, config.glow]);
 
-  return (
-    <div
-      ref={cardRef}
-      className={`${config.bg} ${config.border} border rounded px-2.5 py-1.5 transition-all duration-500`}
-      style={{ animation: "slide-in 0.3s ease-out" }}
-    >
+  const content = (
+    <>
       <div className="flex items-center justify-between">
         <span className="text-muted text-[10px] tabular-nums">#{tx.nonce}</span>
         <span className="flex items-center gap-1">
@@ -123,6 +119,33 @@ function TxCard({ tx }: { tx: TrackedTx }) {
           {tx.error}
         </div>
       )}
+    </>
+  );
+
+  const className = `${config.bg} ${config.border} border rounded px-2.5 py-1.5 transition-all duration-500 block`;
+
+  if (tx.hash) {
+    return (
+      <a
+        ref={cardRef}
+        href={`https://sepolia.basescan.org/tx/${tx.hash}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`${className} hover:brightness-125`}
+        style={{ animation: "slide-in 0.3s ease-out" }}
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <div
+      ref={cardRef}
+      className={className}
+      style={{ animation: "slide-in 0.3s ease-out" }}
+    >
+      {content}
     </div>
   );
 }

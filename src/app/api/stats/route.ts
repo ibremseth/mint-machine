@@ -30,6 +30,7 @@ export async function GET() {
 
     return NextResponse.json({
       totalSupply: formatEther(totalSupply),
+      contractAddress: CONTRACT_ADDRESS,
     });
   } catch (error) {
     const message =
