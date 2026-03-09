@@ -5,7 +5,7 @@ import { GlobalStats } from "@/components/GlobalStats";
 import { MintControls } from "@/components/MintControls";
 import { PoolVisualizer } from "@/components/PoolVisualizer";
 
-type TxStatus = "queued" | "submitted" | "confirmed" | "error";
+type TxStatus = "pending" | "submitted" | "confirmed" | "error";
 
 interface TrackedTx {
   wallet: string;
@@ -16,134 +16,98 @@ interface TrackedTx {
   createdAt: number;
 }
 
-// --- Mock data for UI development ---
-const MOCK_WALLETS = [
-  {
-    address: "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b",
-    currentNonce: 42,
-    pendingNonce: 45,
-    queueDepth: 2,
-    inFlight: 1,
-  },
-  {
-    address: "0x2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c",
-    currentNonce: 38,
-    pendingNonce: 39,
-    queueDepth: 0,
-    inFlight: 1,
-  },
-  {
-    address: "0x3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d",
-    currentNonce: 51,
-    pendingNonce: 54,
-    queueDepth: 1,
-    inFlight: 2,
-  },
-];
-
-let mockNonceCounter = 100;
-
-function simulateMockMint(
-  address: string,
-): Promise<{ wallet: string; nonce: number; status: TxStatus }> {
-  return new Promise((resolve) => {
-    const wallet =
-      MOCK_WALLETS[Math.floor(Math.random() * MOCK_WALLETS.length)];
-    const nonce = mockNonceCounter++;
-    setTimeout(
-      () =>
-        resolve({
-          wallet: wallet.address,
-          nonce,
-          status: "queued",
-        }),
-      100 + Math.random() * 200,
-    );
-  });
+interface WalletInfo {
+  address: string;
+  pendingNonce: number;
+  submittedNonce: number;
+  confirmedNonce: number;
+  queueDepth: number;
+  inFlight: number;
 }
-
-function simulateStatusProgression(
-  tx: TrackedTx,
-  updateTx: (key: string, updates: Partial<TrackedTx>) => void,
-) {
-  const key = `${tx.wallet}-${tx.nonce}`;
-  const submitDelay = 500 + Math.random() * 1500;
-  const confirmDelay = submitDelay + 1000 + Math.random() * 3000;
-  const willError = Math.random() < 0.08;
-
-  setTimeout(() => updateTx(key, { status: "submitted" }), submitDelay);
-  setTimeout(
-    () =>
-      updateTx(key, {
-        status: willError ? "error" : "confirmed",
-        hash: willError
-          ? undefined
-          : `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")}`,
-        error: willError ? "execution reverted" : undefined,
-      }),
-    confirmDelay,
-  );
-}
-// --- End mock data ---
 
 export default function Home() {
   const [transactions, setTransactions] = useState<Map<string, TrackedTx>>(
     new Map(),
   );
+  const [wallets, setWallets] = useState<WalletInfo[]>([]);
+  const [totalSupply, setTotalSupply] = useState("0");
   const [isMinting, setIsMinting] = useState(false);
   const [tps, setTps] = useState(0);
   const confirmedTimestamps = useRef<number[]>([]);
 
-  const updateTx = useCallback(
-    (key: string, updates: Partial<TrackedTx>) => {
-      setTransactions((prev) => {
-        const next = new Map(prev);
-        const existing = next.get(key);
-        if (existing) {
-          if (
-            updates.status === "confirmed" &&
-            existing.status !== "confirmed"
-          ) {
-            confirmedTimestamps.current.push(Date.now());
-          }
-          next.set(key, { ...existing, ...updates });
-        }
-        return next;
-      });
-    },
-    [],
-  );
-
-  const handleMint = useCallback(
-    async (address: string, count: number) => {
-      setIsMinting(true);
+  // Poll pool status
+  useEffect(() => {
+    const poll = async () => {
       try {
-        const promises = Array.from({ length: count }, () =>
-          simulateMockMint(address),
-        );
-        const results = await Promise.all(promises);
+        const res = await fetch("/api/pool");
+        if (res.ok) {
+          const data = await res.json();
+          setWallets(data.wallets);
+        }
+      } catch {}
+    };
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
-        setTransactions((prev) => {
-          const next = new Map(prev);
-          for (const result of results) {
-            const key = `${result.wallet}-${result.nonce}`;
-            const tx: TrackedTx = {
-              wallet: result.wallet,
-              nonce: result.nonce,
-              status: result.status,
-              createdAt: Date.now(),
-            };
-            next.set(key, tx);
-            simulateStatusProgression(tx, updateTx);
+  // Poll stats (totalSupply from chain)
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/stats");
+        if (res.ok) {
+          const data = await res.json();
+          setTotalSupply(data.totalSupply);
+        }
+      } catch {}
+    };
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Poll pending transaction statuses
+  useEffect(() => {
+    const pending = [...transactions.values()].filter(
+      (tx) => tx.status !== "confirmed" && tx.status !== "error",
+    );
+    if (pending.length === 0) return;
+
+    const poll = async () => {
+      for (const tx of pending) {
+        try {
+          const res = await fetch(`/api/tx/${tx.wallet}/${tx.nonce}`);
+          if (res.ok) {
+            const data = await res.json();
+            const key = `${tx.wallet}-${tx.nonce}`;
+            setTransactions((prev) => {
+              const next = new Map(prev);
+              const existing = next.get(key);
+              if (!existing) return prev;
+              const newStatus = data.status as TxStatus;
+              if (
+                newStatus === "confirmed" &&
+                existing.status !== "confirmed"
+              ) {
+                confirmedTimestamps.current.push(Date.now());
+              }
+              next.set(key, {
+                ...existing,
+                status: newStatus,
+                hash: data.hash ?? existing.hash,
+                error: data.error ?? existing.error,
+              });
+              return next;
+            });
           }
-          return next;
-        });
-      } finally {
-        setIsMinting(false);
+        } catch {}
       }
-    },
-    [updateTx],
-  );
+    };
+
+    const interval = setInterval(poll, 1000);
+    return () => clearInterval(interval);
+  }, [transactions]);
 
   // TPS calculation
   useEffect(() => {
@@ -158,10 +122,39 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
+  const handleMint = useCallback(async (address: string, count: number) => {
+    setIsMinting(true);
+    try {
+      const promises = Array.from({ length: count }, () =>
+        fetch("/api/mint", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address }),
+        }).then((r) => r.json()),
+      );
+      const results = await Promise.all(promises);
+
+      setTransactions((prev) => {
+        const next = new Map(prev);
+        for (const result of results) {
+          if (result.wallet && result.nonce !== undefined) {
+            const key = `${result.wallet}-${result.nonce}`;
+            next.set(key, {
+              wallet: result.wallet,
+              nonce: result.nonce,
+              status: result.status || "pending",
+              createdAt: Date.now(),
+            });
+          }
+        }
+        return next;
+      });
+    } finally {
+      setIsMinting(false);
+    }
+  }, []);
+
   const txList = [...transactions.values()];
-  const totalConfirmed = txList.filter(
-    (tx) => tx.status === "confirmed",
-  ).length;
 
   const clearSettled = useCallback(() => {
     setTransactions((prev) => {
@@ -187,20 +180,24 @@ export default function Home() {
       </header>
 
       <GlobalStats
-        totalMinted={totalConfirmed}
+        totalSupply={totalSupply}
         tps={tps}
-        walletCount={MOCK_WALLETS.length}
+        walletCount={wallets.length}
         totalInFlight={
           txList.filter(
-            (tx) => tx.status === "submitted" || tx.status === "queued",
+            (tx) => tx.status === "submitted" || tx.status === "pending",
           ).length
         }
-        totalQueued={txList.filter((tx) => tx.status === "queued").length}
+        totalQueued={txList.filter((tx) => tx.status === "pending").length}
       />
 
       <MintControls onMint={handleMint} isMinting={isMinting} />
 
-      <PoolVisualizer wallets={MOCK_WALLETS} transactions={txList} onClear={clearSettled} />
+      <PoolVisualizer
+        wallets={wallets}
+        transactions={txList}
+        onClear={clearSettled}
+      />
     </div>
   );
 }

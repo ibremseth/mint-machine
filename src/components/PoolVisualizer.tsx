@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-type TxStatus = "queued" | "submitted" | "confirmed" | "error";
+type TxStatus = "pending" | "submitted" | "confirmed" | "error";
 
 interface TrackedTx {
   wallet: string;
@@ -15,8 +15,9 @@ interface TrackedTx {
 
 interface WalletInfo {
   address: string;
-  currentNonce: number;
   pendingNonce: number;
+  submittedNonce: number;
+  confirmedNonce: number;
   queueDepth: number;
   inFlight: number;
 }
@@ -29,14 +30,21 @@ interface PoolVisualizerProps {
 
 const STATUS_CONFIG: Record<
   TxStatus,
-  { color: string; bg: string; border: string; glow: string; label: string; dot: string }
+  {
+    color: string;
+    bg: string;
+    border: string;
+    glow: string;
+    label: string;
+    dot: string;
+  }
 > = {
-  queued: {
+  pending: {
     color: "text-amber-400",
     bg: "bg-amber-400/8",
     border: "border-amber-400/20",
     glow: "0 0 8px rgba(245,158,11,0.4)",
-    label: "QUEUED",
+    label: "PENDING",
     dot: "bg-amber-400",
   },
   submitted: {
@@ -95,8 +103,12 @@ function TxCard({ tx }: { tx: TrackedTx }) {
       <div className="flex items-center justify-between">
         <span className="text-muted text-[10px] tabular-nums">#{tx.nonce}</span>
         <span className="flex items-center gap-1">
-          <span className={`inline-block w-1.5 h-1.5 rounded-full ${config.dot}`} />
-          <span className={`${config.color} text-[10px] font-bold tracking-wider`}>
+          <span
+            className={`inline-block w-1.5 h-1.5 rounded-full ${config.dot}`}
+          />
+          <span
+            className={`${config.color} text-[10px] font-bold tracking-wider`}
+          >
             {config.label}
           </span>
         </span>
@@ -132,13 +144,22 @@ function WalletLane({
         </div>
         <div className="flex gap-3 mt-1.5 text-[10px] uppercase tracking-wider text-muted">
           <span>
-            NONCE <span className="text-foreground/70 tabular-nums">{wallet.currentNonce}</span>
+            NONCE{" "}
+            <span className="text-foreground/70 tabular-nums">
+              {wallet.pendingNonce}
+            </span>
           </span>
           <span>
-            QUEUE <span className="text-foreground/70 tabular-nums">{wallet.queueDepth}</span>
+            QUEUE{" "}
+            <span className="text-foreground/70 tabular-nums">
+              {wallet.queueDepth}
+            </span>
           </span>
           <span>
-            IN-FLT <span className="text-foreground/70 tabular-nums">{wallet.inFlight}</span>
+            IN-FLT{" "}
+            <span className="text-foreground/70 tabular-nums">
+              {wallet.inFlight}
+            </span>
           </span>
         </div>
       </div>
@@ -199,7 +220,8 @@ export function PoolVisualizer({
       </div>
       {transactions.length === 0 && (
         <div className="text-muted/40 text-xs text-center py-6 tracking-wide">
-          Enter an address above and mint to see transactions flow through the pool
+          Enter an address above and mint to see transactions flow through the
+          pool
         </div>
       )}
       <div className="flex gap-3 overflow-x-auto pb-2">

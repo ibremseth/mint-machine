@@ -1,7 +1,7 @@
 "use client";
 
 interface GlobalStatsProps {
-  totalMinted: number;
+  totalSupply: string;
   tps: number;
   walletCount: number;
   totalInFlight: number;
@@ -32,7 +32,7 @@ function StatCard({
 }
 
 export function GlobalStats({
-  totalMinted,
+  totalSupply,
   tps,
   walletCount,
   totalInFlight,
@@ -40,11 +40,11 @@ export function GlobalStats({
 }: GlobalStatsProps) {
   return (
     <div className="flex flex-wrap gap-3 mb-6">
-      <StatCard label="Total Minted" value={totalMinted} />
+      <StatCard label="Total Supply" value={`${totalSupply} BRRRR`} />
       <StatCard label="TPS" value={tps.toFixed(1)} />
       <StatCard label="Pool Size" value={walletCount} />
       <StatCard label="In-Flight" value={totalInFlight} highlight />
-      <StatCard label="Queued" value={totalQueued} highlight />
+      <StatCard label="Pending" value={totalQueued} highlight />
     </div>
   );
 }
