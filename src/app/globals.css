@@ -18,6 +18,23 @@ body {
   font-family: var(--font-mono), monospace;
 }
 
+@keyframes cooldown-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.animate-cooldown-fill {
+  animation-name: cooldown-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  background: currentColor;
+  opacity: 0.35;
+}
+
 @keyframes slide-in {
   from {
     opacity: 0;
