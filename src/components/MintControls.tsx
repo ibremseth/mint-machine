@@ -54,9 +54,28 @@ function CooldownButton({
 export function MintControls({ onMint, isMinting }: MintControlsProps) {
   const [address, setAddress] = useState("");
   const [cooldowns, setCooldowns] = useState<Map<number, CooldownInfo>>(new Map());
+  const [hasWallet, setHasWallet] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const pendingCooldown = useRef<number | null>(null);
 
   const isValidAddress = /^0x[a-fA-F0-9]{40}$/.test(address);
+
+  useEffect(() => {
+    setHasWallet(typeof window !== "undefined" && !!window.ethereum);
+  }, []);
+
+  const connectWallet = useCallback(async () => {
+    if (!window.ethereum) return;
+    setConnecting(true);
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      if (accounts?.[0]) setAddress(accounts[0]);
+    } catch {
+      // user rejected
+    } finally {
+      setConnecting(false);
+    }
+  }, []);
 
   // Start the cooldown animation once minting finishes
   useEffect(() => {
@@ -89,6 +108,15 @@ export function MintControls({ onMint, isMinting }: MintControlsProps) {
   return (
     <div className="bg-surface border border-border rounded p-4 mb-6">
       <div className="flex flex-col sm:flex-row gap-3">
+        {hasWallet && !isValidAddress && (
+          <button
+            onClick={connectWallet}
+            disabled={connecting}
+            className="px-3 py-2 bg-surface-alt border border-border rounded text-muted text-xs font-bold uppercase tracking-wider hover:text-foreground hover:border-primary/40 disabled:opacity-30 disabled:cursor-not-allowed transition-all whitespace-nowrap"
+          >
+            {connecting ? "..." : "My Wallet"}
+          </button>
+        )}
         <input
           type="text"
           placeholder="0x... recipient address"

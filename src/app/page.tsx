@@ -176,8 +176,23 @@ export default function Home() {
         <h1 className="text-3xl sm:text-4xl font-bold tracking-widest text-foreground">
           MINT MACHINE
         </h1>
-        <p className="text-muted text-xs mt-1 tracking-wider uppercase">
-          wallet pool transaction visualizer
+        <p className="text-muted/70 text-xs mt-3 max-w-md mx-auto">
+          Mint ERC-20 tokens to any address on Base Sepolia
+        </p>
+        <p className="text-muted/70 text-xs mt-3 max-w-md mx-auto">
+          Enter a recipient address below, pick a batch size, and watch
+          transactions flow
+        </p>
+        <p className="text-muted/70 text-xs mt-3 max-w-md mx-auto">
+          Built on{" "}
+          <a
+            href="https://github.com/ibremseth/durable-wallets"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary/70 hover:text-primary transition-colors underline underline-offset-2"
+          >
+            Durable Wallets
+          </a>
         </p>
       </header>
 

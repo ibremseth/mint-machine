@@ -241,12 +241,6 @@ export function PoolVisualizer({
           </button>
         )}
       </div>
-      {transactions.length === 0 && (
-        <div className="text-muted/40 text-xs text-center py-6 tracking-wide">
-          Enter an address above and mint to see transactions flow through the
-          pool
-        </div>
-      )}
       <div className="flex gap-3 overflow-x-auto pb-2">
         {wallets.map((wallet) => (
           <WalletLane
