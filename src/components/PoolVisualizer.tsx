@@ -80,7 +80,7 @@ function truncateAddress(addr: string) {
 function TxCard({ tx }: { tx: TrackedTx }) {
   const config = STATUS_CONFIG[tx.status];
   const prevStatus = useRef(tx.status);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (prevStatus.current !== tx.status && cardRef.current) {
@@ -127,7 +127,7 @@ function TxCard({ tx }: { tx: TrackedTx }) {
   if (tx.hash) {
     return (
       <a
-        ref={cardRef}
+        ref={cardRef as React.RefObject<HTMLAnchorElement | null>}
         href={`https://sepolia.basescan.org/tx/${tx.hash}`}
         target="_blank"
         rel="noopener noreferrer"
@@ -141,7 +141,7 @@ function TxCard({ tx }: { tx: TrackedTx }) {
 
   return (
     <div
-      ref={cardRef}
+      ref={cardRef as React.RefObject<HTMLDivElement | null>}
       className={className}
       style={{ animation: "slide-in 0.3s ease-out" }}
     >
