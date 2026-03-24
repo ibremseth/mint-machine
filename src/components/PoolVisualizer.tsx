@@ -162,9 +162,14 @@ function WalletLane({
   return (
     <div className="bg-surface border border-border rounded min-w-[220px] flex-1">
       <div className="border-b border-border px-3 py-2.5">
-        <div className="text-foreground text-xs font-bold tracking-wider">
+        <a
+          href={`https://sepolia.basescan.org/address/${wallet.address}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-foreground text-xs font-bold tracking-wider hover:text-primary transition-colors"
+        >
           {truncateAddress(wallet.address)}
-        </div>
+        </a>
         <div className="flex gap-3 mt-1.5 text-[10px] uppercase tracking-wider text-muted">
           <span>
             NONCE{" "}
