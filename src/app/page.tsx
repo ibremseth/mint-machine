@@ -52,7 +52,10 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Poll stats (totalSupply from chain)
+  // Poll stats — 5s while txns are in-flight, 30s when idle
+  const hasPending = [...transactions.values()].some(
+    (tx) => tx.status !== "confirmed" && tx.status !== "error",
+  );
   useEffect(() => {
     const poll = async () => {
       try {
@@ -65,51 +68,81 @@ export default function Home() {
       } catch {}
     };
     poll();
-    const interval = setInterval(poll, 5000);
+    const interval = setInterval(poll, hasPending ? 5000 : 30000);
+    return () => clearInterval(interval);
+  }, [hasPending]);
+
+  // Ref to latest transactions so the polling interval can read current
+  // state without being torn down and recreated on every change.
+  const transactionsRef = useRef(transactions);
+  transactionsRef.current = transactions;
+
+  // Poll pending transaction statuses, batched per wallet
+  useEffect(() => {
+    async function fetchWalletTxs(wallet: string, txs: TrackedTx[]) {
+      const nonces = txs.map((tx) => tx.nonce);
+      const res = await fetch(
+        `/api/txs/${wallet}?from=${Math.min(...nonces)}&to=${Math.max(...nonces)}`,
+      );
+      if (!res.ok) return;
+
+      const data = await res.json();
+      const byNonce = new Map<number, (typeof data.transactions)[0]>();
+      for (const tx of data.transactions ?? []) {
+        byNonce.set(tx.nonce, tx);
+      }
+
+      setTransactions((prev) => {
+        const next = new Map(prev);
+        let changed = false;
+        for (const tracked of txs) {
+          const key = `${tracked.wallet}-${tracked.nonce}`;
+          const existing = next.get(key);
+          const remote = byNonce.get(tracked.nonce);
+          if (!existing || !remote) continue;
+          if (remote.status === existing.status && remote.hash === existing.hash)
+            continue;
+          if (remote.status === "confirmed" && existing.status !== "confirmed") {
+            confirmedTimestamps.current.push(Date.now());
+          }
+          next.set(key, {
+            ...existing,
+            status: remote.status as TxStatus,
+            hash: remote.hash ?? existing.hash,
+            error: remote.error ?? existing.error,
+          });
+          changed = true;
+        }
+        return changed ? next : prev;
+      });
+    }
+
+    let polling = false;
+    const interval = setInterval(async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        // Group pending txs by wallet
+        const byWallet = new Map<string, TrackedTx[]>();
+        for (const tx of transactionsRef.current.values()) {
+          if (tx.status === "confirmed" || tx.status === "error") continue;
+          const list = byWallet.get(tx.wallet) ?? [];
+          list.push(tx);
+          byWallet.set(tx.wallet, list);
+        }
+
+        await Promise.all(
+          [...byWallet.entries()].map(([wallet, txs]) =>
+            fetchWalletTxs(wallet, txs).catch(() => {}),
+          ),
+        );
+      } finally {
+        polling = false;
+      }
+    }, 1000);
+
     return () => clearInterval(interval);
   }, []);
-
-  // Poll pending transaction statuses
-  useEffect(() => {
-    const pending = [...transactions.values()].filter(
-      (tx) => tx.status !== "confirmed" && tx.status !== "error",
-    );
-    if (pending.length === 0) return;
-
-    const poll = async () => {
-      for (const tx of pending) {
-        try {
-          const res = await fetch(`/api/tx/${tx.wallet}/${tx.nonce}`);
-          if (res.ok) {
-            const data = await res.json();
-            const key = `${tx.wallet}-${tx.nonce}`;
-            setTransactions((prev) => {
-              const next = new Map(prev);
-              const existing = next.get(key);
-              if (!existing) return prev;
-              const newStatus = data.status as TxStatus;
-              if (
-                newStatus === "confirmed" &&
-                existing.status !== "confirmed"
-              ) {
-                confirmedTimestamps.current.push(Date.now());
-              }
-              next.set(key, {
-                ...existing,
-                status: newStatus,
-                hash: data.hash ?? existing.hash,
-                error: data.error ?? existing.error,
-              });
-              return next;
-            });
-          }
-        } catch {}
-      }
-    };
-
-    const interval = setInterval(poll, 1000);
-    return () => clearInterval(interval);
-  }, [transactions]);
 
   // TPS calculation
   useEffect(() => {
@@ -177,14 +210,7 @@ export default function Home() {
           MINT MACHINE
         </h1>
         <p className="text-muted/70 text-xs mt-3 max-w-md mx-auto">
-          Mint ERC-20 tokens to any address on Base Sepolia
-        </p>
-        <p className="text-muted/70 text-xs mt-3 max-w-md mx-auto">
-          Enter a recipient address below, pick a batch size, and watch
-          transactions flow
-        </p>
-        <p className="text-muted/70 text-xs mt-3 max-w-md mx-auto">
-          Built on{" "}
+          Mint ERC-20 tokens on Base Sepolia, built on{" "}
           <a
             href="https://github.com/ibremseth/durable-wallets"
             target="_blank"

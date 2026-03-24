@@ -40,3 +40,15 @@ export async function getWalletStatus(address: string) {
 export async function getTransaction(wallet: string, nonce: number) {
   return request(`/wallets/${wallet}/tx/${nonce}`);
 }
+
+export async function getTransactions(
+  wallet: string,
+  from?: number,
+  to?: number,
+) {
+  const params = new URLSearchParams();
+  if (from !== undefined) params.set("from", String(from));
+  if (to !== undefined) params.set("to", String(to));
+  const qs = params.toString();
+  return request(`/wallets/${wallet}/txs${qs ? `?${qs}` : ""}`);
+}

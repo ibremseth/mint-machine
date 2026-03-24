@@ -9,11 +9,15 @@ const DEFAULT_STATUS = {
   inFlight: 0,
 };
 
+let cachedAddresses: string[] | null = null;
+
 export async function GET() {
-  const addresses = await getWallets();
+  if (!cachedAddresses) {
+    cachedAddresses = await getWallets();
+  }
 
   const wallets = await Promise.all(
-    addresses.map(async (address: string) => {
+    cachedAddresses.map(async (address: string) => {
       try {
         const status = await getWalletStatus(address);
         return { address, ...status };
